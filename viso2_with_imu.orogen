@@ -1,0 +1,33 @@
+name "viso2_with_imu"
+# Optionally declare the version number
+# version "0.1"
+
+#import_types_from "viso2_with_imuTypes.hpp"
+
+import_types_from "base"
+
+
+task_context "Task" do
+    needs_configuration
+
+    # A configuration property (here, a std::string). Its value can be retrieved
+    # in the C++ code with # _config_value.get() and _config_value.set(new_value).
+    property "config_value", "/std/string"
+
+    # INPUT
+    input_port("pose_samples_imu", "/base/samples/RigidBodyState").
+        doc "IMU providing proper pitch and roll angles"
+
+    input_port("pose_samples_imu", "/base/samples/RigidBodyState").
+        doc "Additional optimal IMU providing good yaw. If this is in use this yaw will be used"
+
+    input_port("delta_pose_samples_in", "/base/samples/RigidBodyState").
+        doc "Dela pose samples coming from libviso2"
+
+    # OUTPUT
+    output_port("pose_samples_out", "/base/samples/RigidBodyState").
+        doc "Estimated pose in body frame. Tbody0_bodyk"
+
+    port driven
+end
+

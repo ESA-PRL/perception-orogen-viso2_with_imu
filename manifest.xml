@@ -1,0 +1,16 @@
+<package>
+  <description brief="Simple component merging pitch and roll from IMU into a viso2 delta pose output and giving a pose based on that">
+  Simple component merging pitch and roll from IMU into a viso2 delta pose output and giving a pose based on that
+  </description>
+  <author>Marco Pagnamenta/marco.pagnamenta@esa.int</author>
+  <license></license>
+  <url>http://</url>
+  <logo>http://</logo>
+
+  <depend package="base/cmake" />
+  <depend package="base/types" />
+  <depend package="drivers/orogen/transformer" />
+  <depend package="image_processing/orogen/viso2" />
+  <depend package="image_processing/frame_helper"/>
+
+</package>

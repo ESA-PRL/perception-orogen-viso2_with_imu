@@ -18,7 +18,7 @@ task_context "Task" do
     input_port("pose_samples_imu", "/base/samples/RigidBodyState").
         doc "IMU providing proper pitch and roll angles"
 
-    input_port("pose_samples_imu", "/base/samples/RigidBodyState").
+    input_port("pose_samples_imu_extra", "/base/samples/RigidBodyState").
         doc "Additional optimal IMU providing good yaw. If this is in use this yaw will be used"
 
     input_port("delta_pose_samples_in", "/base/samples/RigidBodyState").
@@ -28,6 +28,6 @@ task_context "Task" do
     output_port("pose_samples_out", "/base/samples/RigidBodyState").
         doc "Estimated pose in body frame. Tbody0_bodyk"
 
-    port driven
+    port_driven
 end
 

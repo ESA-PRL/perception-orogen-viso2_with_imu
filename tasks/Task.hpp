@@ -28,6 +28,7 @@ namespace viso2_with_imu {
 		base::samples::RigidBodyState delta_pose, new_delta_pose, pose_out, 
 			previous_imu_pose, imu_pose, imu_extra_pose, previous_imu_extra_pose;
 		Eigen::Affine3d pose; //accumulated pose
+		double dirty_offset;
 
 
 

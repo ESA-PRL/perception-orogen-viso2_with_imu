@@ -12,7 +12,8 @@ task_context "Task" do
 
     # A configuration property (here, a std::string). Its value can be retrieved
     # in the C++ code with # _config_value.get() and _config_value.set(new_value).
-    property "config_value", "/std/string"
+    property("initial_pose", "/base/samples/RigidBodyState").
+        doc "Pose is reset to X,Y,Z and yaw of this input pose. Pitch and roll are still taken from the IMU"
 
     # INPUT
     input_port("pose_samples_imu", "/base/samples/RigidBodyState").
@@ -23,6 +24,9 @@ task_context "Task" do
 
     input_port("delta_pose_samples_in", "/base/samples/RigidBodyState").
         doc "Dela pose samples coming from libviso2"
+
+    input_port("reset_pose", "/base/samples/RigidBodyState").
+        doc "Pose is reset to X,Y,Z and yaw of this input pose. Pitch and roll are still taken from the IMU"
 
     # OUTPUT
     output_port("pose_samples_out", "/base/samples/RigidBodyState").

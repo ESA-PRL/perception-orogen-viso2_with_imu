@@ -30,6 +30,7 @@ namespace viso2_with_imu {
 			reset_pose;
 		Eigen::Affine3d pose; //accumulated pose
 		double gyro_offset;
+		bool pose_valid;
 
 
 
@@ -110,7 +111,7 @@ namespace viso2_with_imu {
          */
         void cleanupHook();
         
-        void resetPose();
+        bool resetPose();
     };
 }
 

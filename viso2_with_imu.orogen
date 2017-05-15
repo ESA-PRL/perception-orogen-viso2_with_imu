@@ -14,7 +14,11 @@ task_context "Task" do
     # in the C++ code with # _config_value.get() and _config_value.set(new_value).
     property("initial_pose", "/base/samples/RigidBodyState").
         doc "Pose is reset to X,Y,Z and yaw of this input pose. Pitch and roll are still taken from the IMU"
-
+    
+    # Transformer
+    property('source_frame', '/std/string').doc 'From Frame for the transformer'
+    property('target_frame', '/std/string').doc 'To Frame for the transformer'
+    
     # INPUT
     input_port("pose_samples_imu", "/base/samples/RigidBodyState").
         doc "IMU providing proper pitch and roll angles"

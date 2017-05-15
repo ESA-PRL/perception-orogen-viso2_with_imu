@@ -65,9 +65,7 @@ bool Task::configureHook()
 	
 	
 	// frame def for transformer
-	pose_out.sourceFrame = "body";
-    pose_out.targetFrame = "visiodom_world";
-	
+
     return true;
 }
 bool Task::startHook()
@@ -96,7 +94,8 @@ void Task::updateHook()
     {
 		// read IMU sensors
 		double delta_yaw, delta_pitch, delta_roll;
-		_pose_samples_imu.read(imu_pose); // non blocking because IMU is fast enough
+		while(_pose_samples_imu.read(imu_pose) != RTT::NewData)
+			; // non blocking because IMU is fast enough
 		
 		// TODO this IMU rotation must be sorted out one day
 		delta_yaw = delta_pose.getYaw();
@@ -108,7 +107,8 @@ void Task::updateHook()
 		
 		if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
 		{
-			_pose_samples_imu_extra.read(imu_extra_pose); // non blocking because IMU is fast enough
+			while(_pose_samples_imu_extra.read(imu_extra_pose) != RTT::NewData)
+				; // non blocking because IMU is fast enough
 			delta_yaw = imu_extra_pose.getYaw() - previous_imu_extra_pose.getYaw();
 			previous_imu_extra_pose = imu_extra_pose;
 		}	
@@ -125,9 +125,14 @@ void Task::updateHook()
 													delta_pose.position.z());
 		Eigen::Transform<double,3,Eigen::Affine> eigen_delta_pose = orientation_delta * translation_delta;		
 		
+		std::cout << "deltas" << delta_yaw << " " << delta_pitch << " " << delta_roll << std::endl;
+		std::cout << eigen_delta_pose.translation().x() << " " << eigen_delta_pose.translation().y() << " " << eigen_delta_pose.translation().z() << " " << std::endl;
+		std::cout << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
+
 		// update pose
 		pose = pose * eigen_delta_pose;
-		
+				std::cout << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
+
 		Eigen::Quaternion<double> attitude(pose.rotation());		
 		
         pose_out.time = delta_pose.time;
@@ -153,10 +158,15 @@ void Task::updateHook()
 		}
 		
 		Eigen::Translation<double,3> translation_total(pose.translation());
+		std::cout << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
 
 		pose = translation_total * imu_orientation;
 
-        
+        std::cout << "UPD: " << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
+
+		pose_out.sourceFrame = _source_frame.get();
+		pose_out.targetFrame = _target_frame.get();
+	
         _pose_samples_out.write(pose_out);
 	}
 
@@ -179,21 +189,31 @@ void Task::resetPose()
 	// init pose for test purpose
 	pose = Eigen::Affine3d::Identity();
 	Eigen::Quaternion <double> orientation_init(Eigen::AngleAxisd(reset_pose.getYaw(), Eigen::Vector3d::UnitZ())*
-                                        Eigen::AngleAxisd(-imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
-										Eigen::AngleAxisd(-imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
+                                        Eigen::AngleAxisd(reset_pose.getPitch(), Eigen::Vector3d::UnitY()) *
+										Eigen::AngleAxisd(reset_pose.getRoll(), Eigen::Vector3d::UnitX()));
 	
 	Eigen::Translation<double,3> translation_init(reset_pose.position.x(),
 												reset_pose.position.y(),
 												reset_pose.position.z());
 
-										
+									
 	pose = translation_init * orientation_init;
-    
+	Eigen::Quaternion<double> attitude(pose.rotation());		
+		
 	// Rigid body state output initialization
 	pose_out.invalidate();
 	pose_out.orientation = Eigen::Quaterniond(Eigen::Matrix3d::Identity());
 	pose_out.position = Eigen::Vector3d::Zero();
-	pose_out.velocity = Eigen::Vector3d::Zero();
+	pose_out.velocity = Eigen::Vector3d::Zero();	
+	
+	pose_out.time = delta_pose.time;
+	pose_out.position = pose.translation();
+	pose_out.orientation = attitude;
+	
+    pose_out.sourceFrame = _source_frame.get();
+    pose_out.targetFrame = _target_frame.get();
+	
+	_pose_samples_out.write(pose_out);
 	
 	imu_pose.invalidate();
 	imu_pose.orientation = Eigen::Quaterniond(Eigen::Matrix3d::Identity());
@@ -222,4 +242,5 @@ void Task::resetPose()
 		;
 	
 	gyro_offset = reset_pose.getYaw()-previous_imu_extra_pose.getYaw();
+	
 }

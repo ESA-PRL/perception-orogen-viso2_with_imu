@@ -125,13 +125,8 @@ void Task::updateHook()
 													delta_pose.position.z());
 		Eigen::Transform<double,3,Eigen::Affine> eigen_delta_pose = orientation_delta * translation_delta;		
 		
-		std::cout << "deltas" << delta_yaw << " " << delta_pitch << " " << delta_roll << std::endl;
-		std::cout << eigen_delta_pose.translation().x() << " " << eigen_delta_pose.translation().y() << " " << eigen_delta_pose.translation().z() << " " << std::endl;
-		std::cout << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
-
 		// update pose
 		pose = pose * eigen_delta_pose;
-				std::cout << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
 
 		Eigen::Quaternion<double> attitude(pose.rotation());		
 		
@@ -158,11 +153,7 @@ void Task::updateHook()
 		}
 		
 		Eigen::Translation<double,3> translation_total(pose.translation());
-		std::cout << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
-
 		pose = translation_total * imu_orientation;
-
-        std::cout << "UPD: " << pose.translation().x() << " " << pose.translation().y() << " " << pose.translation().z() << " " << std::endl;
 
 		pose_out.sourceFrame = _source_frame.get();
 		pose_out.targetFrame = _target_frame.get();

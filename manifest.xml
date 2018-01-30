@@ -10,7 +10,7 @@
   <depend package="base/cmake" />
   <depend package="base/types" />
   <depend package="drivers/orogen/transformer" />
-  <depend package="image_processing/orogen/viso2" />
-  <depend package="image_processing/frame_helper"/>
+  <depend package="perception/orogen/viso2" />
+  <depend package="perception/frame_helper"/>
 
 </package>

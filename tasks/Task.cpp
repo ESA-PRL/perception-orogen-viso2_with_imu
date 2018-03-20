@@ -76,29 +76,28 @@ bool Task::startHook()
 {
     if (! TaskBase::startHook())
         return false;
-    
+
 	pose_valid = false;
 	
-        
+
     return true;
 }
 void Task::updateHook()
 {
     TaskBase::updateHook();
-        
+
     if(!pose_valid)
     {
-		if(_reset_pose.connected())
-		{
-			if(_reset_pose.read(reset_pose) == RTT::NewData)
-			{
-				pose_valid = this->resetPose();
-			}
-		}
-		else
-			pose_valid = this->resetPose();
+		pose_valid = this->resetPose();
 	}
-    
+	if(_reset_pose.connected())
+	{
+		if(_reset_pose.read(reset_pose) == RTT::NewData)
+		{
+			pose_valid = this->resetPose();
+		}
+	}
+
     if(_delta_pose_samples_in.read(delta_pose) == RTT::NewData && pose_valid)
     {
 		// read IMU sensors
@@ -184,33 +183,7 @@ void Task::cleanupHook()
 
 bool Task::resetPose()
 {
-	// init pose for test purpose
-	pose = Eigen::Affine3d::Identity();
-	Eigen::Quaternion <double> orientation_init(Eigen::AngleAxisd(reset_pose.getYaw(), Eigen::Vector3d::UnitZ())*
-                                        Eigen::AngleAxisd(reset_pose.getPitch(), Eigen::Vector3d::UnitY()) *
-										Eigen::AngleAxisd(reset_pose.getRoll(), Eigen::Vector3d::UnitX()));
-	
-	Eigen::Translation<double,3> translation_init(reset_pose.position.x(),
-												reset_pose.position.y(),
-												reset_pose.position.z());
-
-									
-	pose = translation_init * orientation_init;
-	Eigen::Quaternion<double> attitude(pose.rotation());		
 		
-	// Rigid body state output initialization
-	pose_out.invalidate();
-	pose_out.orientation = Eigen::Quaterniond(Eigen::Matrix3d::Identity());
-	pose_out.position = Eigen::Vector3d::Zero();
-	pose_out.velocity = Eigen::Vector3d::Zero();	
-	
-	pose_out.time = delta_pose.time;
-	pose_out.position = pose.translation();
-	pose_out.orientation = attitude;
-	
-    pose_out.sourceFrame = _source_frame.get();
-    pose_out.targetFrame = _target_frame.get();
-	
 	
 	imu_pose.invalidate();
 	imu_pose.orientation = Eigen::Quaterniond(Eigen::Matrix3d::Identity());
@@ -233,13 +206,39 @@ bool Task::resetPose()
 	previous_imu_extra_pose.velocity = Eigen::Vector3d::Zero();
 	
 	// Init previous IMU with current IMU status and load gyro_offset as well for absolute gyro position
-	if(_pose_samples_imu.read(previous_imu_pose) == RTT::NewData && 
-		_pose_samples_imu_extra.read(previous_imu_extra_pose) == RTT::NewData)
+	while(_pose_samples_imu.read(previous_imu_pose) != RTT::NewData)// non blocking because IMU is fast enough
+	if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
 	{
+		while(_pose_samples_imu_extra.read(previous_imu_extra_pose) != RTT::NewData) // non blocking because IMU is fast enough
 		gyro_offset = reset_pose.getYaw()-previous_imu_extra_pose.getYaw();
-		_pose_samples_out.write(pose_out);
-		return true;
-	}
-	else
-		return false;
+    }
+
+    // init pose for test purpose
+	pose = Eigen::Affine3d::Identity();
+	Eigen::Quaternion <double> orientation_init(Eigen::AngleAxisd(reset_pose.getYaw(), Eigen::Vector3d::UnitZ())*
+									Eigen::AngleAxisd(-previous_imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
+									Eigen::AngleAxisd(-previous_imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
+	
+	Eigen::Translation<double,3> translation_init(reset_pose.position.x(),
+												reset_pose.position.y(),
+												reset_pose.position.z());
+	
+    pose = translation_init * orientation_init;
+	Eigen::Quaternion<double> attitude(pose.rotation());		
+		
+	// Rigid body state output initialization
+	pose_out.invalidate();
+	pose_out.orientation = Eigen::Quaterniond(Eigen::Matrix3d::Identity());
+	pose_out.position = Eigen::Vector3d::Zero();
+	pose_out.velocity = Eigen::Vector3d::Zero();	
+	
+	pose_out.time = delta_pose.time;
+	pose_out.position = pose.translation();
+	pose_out.orientation = attitude;
+	
+    pose_out.sourceFrame = _source_frame.get();
+    pose_out.targetFrame = _target_frame.get();
+
+	_pose_samples_out.write(pose_out);
+	return true;
 }

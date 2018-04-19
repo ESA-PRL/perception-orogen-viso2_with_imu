@@ -66,9 +66,7 @@ bool Task::configureHook()
 	
 	// frame def for transformer
 
-    reset_pose = _initial_pose.get();
-
-	
+    reset_pose = _initial_pose.value();
 
     return true;
 }
@@ -85,39 +83,47 @@ bool Task::startHook()
 void Task::updateHook()
 {
     TaskBase::updateHook();
+	double delta_yaw, delta_pitch, delta_roll;
 
     if(!pose_valid)
     {
 		pose_valid = this->resetPose();
+        std::cout << "Reseting invalid pose: " << pose_valid << std::endl;
 	}
 	if(_reset_pose.connected())
 	{
 		if(_reset_pose.read(reset_pose) == RTT::NewData)
 		{
 			pose_valid = this->resetPose();
+            std::cout << "Reseting pose: " << pose_valid << std::endl;
 		}
+	}
+    if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
+	{
+		if(_pose_samples_imu_extra.read(imu_extra_pose) == RTT::NewData)
+        {
+            delta_yaw = imu_extra_pose.getYaw() - previous_imu_extra_pose.getYaw();
+		    previous_imu_extra_pose = imu_extra_pose;
+        }
 	}
 
     if(_delta_pose_samples_in.read(delta_pose) == RTT::NewData && pose_valid)
     {
-		// read IMU sensors
-		double delta_yaw, delta_pitch, delta_roll;
-		while(_pose_samples_imu.read(imu_pose) != RTT::NewData)// non blocking because IMU is fast enough
+        // read IMU sensors
+		while(_pose_samples_imu.read(imu_pose) != RTT::NewData);// non blocking because IMU is fast enough
 		
+        if(!_pose_samples_imu_extra.connected())
+        {
+            delta_yaw = delta_pose.getYaw();
+        }
 		// TODO this IMU rotation must be sorted out one day
-		delta_yaw = delta_pose.getYaw();
-		delta_pitch = (-imu_pose.getPitch())-(-previous_imu_pose.getPitch());
+        delta_pitch = (-imu_pose.getPitch())-(-previous_imu_pose.getPitch());
 		delta_roll = (-imu_pose.getRoll())-(-previous_imu_pose.getRoll());
 		previous_imu_pose = imu_pose;
 		//pitch = imu_pose.getPitch()-previous_imu_pose.getPitch();
 		//roll = imu_pose.getRoll()-previous_imu_pose.getRoll();
 		
-		if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
-		{
-			while(_pose_samples_imu_extra.read(imu_extra_pose) != RTT::NewData) // non blocking because IMU is fast enough
-			delta_yaw = imu_extra_pose.getYaw() - previous_imu_extra_pose.getYaw();
-			previous_imu_extra_pose = imu_extra_pose;
-		}	
+			
 		// from rigidbody state to eigen affine3d 	
 		// combine delta pitch roll from imu with the ones of viso2
 
@@ -131,7 +137,7 @@ void Task::updateHook()
 													delta_pose.position.z());
 		Eigen::Transform<double,3,Eigen::Affine> eigen_delta_pose = orientation_delta * translation_delta;		
 		
-		// update pose
+        // update pose
 		pose = pose * eigen_delta_pose;
 
 		Eigen::Quaternion<double> attitude(pose.rotation());		
@@ -140,7 +146,7 @@ void Task::updateHook()
         pose_out.position = pose.translation();
 		pose_out.orientation = attitude;
 
-		// force attitude to IMU attitude
+        // force attitude to IMU attitude
 		Eigen::Quaternion <double> imu_orientation;
 										
 		if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
@@ -183,8 +189,6 @@ void Task::cleanupHook()
 
 bool Task::resetPose()
 {
-		
-	
 	imu_pose.invalidate();
 	imu_pose.orientation = Eigen::Quaterniond(Eigen::Matrix3d::Identity());
 	imu_pose.position = Eigen::Vector3d::Zero();
@@ -206,10 +210,10 @@ bool Task::resetPose()
 	previous_imu_extra_pose.velocity = Eigen::Vector3d::Zero();
 	
 	// Init previous IMU with current IMU status and load gyro_offset as well for absolute gyro position
-	while(_pose_samples_imu.read(previous_imu_pose) != RTT::NewData)// non blocking because IMU is fast enough
+	while(_pose_samples_imu.read(previous_imu_pose) != RTT::NewData);// non blocking because IMU is fast enough
 	if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
 	{
-		while(_pose_samples_imu_extra.read(previous_imu_extra_pose) != RTT::NewData) // non blocking because IMU is fast enough
+		while(_pose_samples_imu_extra.read(previous_imu_extra_pose) != RTT::NewData); // non blocking because IMU is fast enough
 		gyro_offset = reset_pose.getYaw()-previous_imu_extra_pose.getYaw();
     }
 
@@ -219,9 +223,10 @@ bool Task::resetPose()
 									Eigen::AngleAxisd(-previous_imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
 									Eigen::AngleAxisd(-previous_imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
 	
+	//Eigen::Translation<double,3> translation_init(0.0,0.0,0.0);
 	Eigen::Translation<double,3> translation_init(reset_pose.position.x(),
-												reset_pose.position.y(),
-												reset_pose.position.z());
+	 											reset_pose.position.y(),
+	 											reset_pose.position.z());
 	
     pose = translation_init * orientation_init;
 	Eigen::Quaternion<double> attitude(pose.rotation());		
@@ -232,10 +237,12 @@ bool Task::resetPose()
 	pose_out.position = Eigen::Vector3d::Zero();
 	pose_out.velocity = Eigen::Vector3d::Zero();	
 	
-	pose_out.time = delta_pose.time;
+	pose_out.time = base::Time::now();
 	pose_out.position = pose.translation();
 	pose_out.orientation = attitude;
-	
+
+    std::cout << "pose_out.position: " << std::endl << pose_out.position << std::endl << "pose_out.getYaw(): " << pose_out.getYaw() << std::endl;
+
     pose_out.sourceFrame = _source_frame.get();
     pose_out.targetFrame = _target_frame.get();
 

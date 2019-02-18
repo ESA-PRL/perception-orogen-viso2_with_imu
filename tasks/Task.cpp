@@ -88,14 +88,14 @@ void Task::updateHook()
     if(!pose_valid)
     {
 		pose_valid = this->resetPose();
-        std::cout << "Reseting invalid pose: " << pose_valid << std::endl;
+        LOG_DEBUG_S << "Resetting invalid pose: " << pose_valid;
 	}
 	if(_reset_pose.connected())
 	{
 		if(_reset_pose.read(reset_pose) == RTT::NewData)
 		{
 			pose_valid = this->resetPose();
-            std::cout << "Reseting pose: " << pose_valid << std::endl;
+            LOG_DEBUG_S << "Resetting pose: " << pose_valid;
 		}
 	}
     if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
@@ -241,7 +241,7 @@ bool Task::resetPose()
 	pose_out.position = pose.translation();
 	pose_out.orientation = attitude;
 
-    std::cout << "pose_out.position: " << std::endl << pose_out.position << std::endl << "pose_out.getYaw(): " << pose_out.getYaw() << std::endl;
+    LOG_DEBUG_S << "pose_out.position: " << std::endl << pose_out.position << std::endl << "pose_out.getYaw(): " << pose_out.getYaw();
 
     pose_out.sourceFrame = _source_frame.get();
     pose_out.targetFrame = _target_frame.get();

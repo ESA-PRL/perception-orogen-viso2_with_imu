@@ -4,6 +4,7 @@
 #define VISO2_WITH_IMU_TASK_TASK_HPP
 
 #include "viso2_with_imu/TaskBase.hpp"
+#include "base-logging/Logging.hpp"
 
 namespace viso2_with_imu {
 

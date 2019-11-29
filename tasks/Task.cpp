@@ -67,6 +67,8 @@ bool Task::configureHook()
 	// frame def for transformer
 
     reset_pose = _initial_pose.value();
+    begin = std::clock();
+    start = true;
 
     return true;
 }
@@ -76,27 +78,40 @@ bool Task::startHook()
         return false;
 
 	pose_valid = false;
-	
 
     return true;
 }
 void Task::updateHook()
 {
     TaskBase::updateHook();
-	double delta_yaw, delta_pitch, delta_roll;
+	
+    /*
+    if (start)
+    {
+        std::clock_t end = std::clock();
+        std::cout << "--------------------" << std::endl << "--------------------" << std::endl;
+        std::cout << " Viso2_with_imu task warm up time:" << static_cast<double>(end - begin) / CLOCKS_PER_SEC << std::endl;
+        std::cout << "--------------------" << std::endl << "--------------------" << std::endl;
+        start = false;
+    }
+    */
+
+    double delta_yaw, delta_pitch, delta_roll;
+
+    //std::cout << "updateHook -- delta_yaw: " << delta_yaw << "\n";
 
     if(!pose_valid)
     {
 		pose_valid = this->resetPose();
         LOG_DEBUG_S << "Resetting invalid pose: " << pose_valid;
-	}
+    }
 	if(_reset_pose.connected())
 	{
 		if(_reset_pose.read(reset_pose) == RTT::NewData)
 		{
 			pose_valid = this->resetPose();
             LOG_DEBUG_S << "Resetting pose: " << pose_valid;
-		}
+        }
 	}
     if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
 	{
@@ -123,6 +138,7 @@ void Task::updateHook()
 		//pitch = imu_pose.getPitch()-previous_imu_pose.getPitch();
 		//roll = imu_pose.getRoll()-previous_imu_pose.getRoll();
 		
+		//std::cout << "delta_roll, delta_pitch, delta_yaw: " << delta_roll << "," << delta_pitch << "," << delta_yaw << "\n";
 			
 		// from rigidbody state to eigen affine3d 	
 		// combine delta pitch roll from imu with the ones of viso2
@@ -136,11 +152,12 @@ void Task::updateHook()
 													delta_pose.position.y(),
 													delta_pose.position.z());
 		Eigen::Transform<double,3,Eigen::Affine> eigen_delta_pose = orientation_delta * translation_delta;		
-		
-        // update pose
-		pose = pose * eigen_delta_pose;
 
-		Eigen::Quaternion<double> attitude(pose.rotation());		
+        // update pose	
+        
+        pose = pose * eigen_delta_pose;
+
+        Eigen::Quaternion<double> attitude(pose.rotation());		
 		
         pose_out.time = delta_pose.time;
         pose_out.position = pose.translation();
@@ -219,7 +236,8 @@ bool Task::resetPose()
 
     // init pose for test purpose
 	pose = Eigen::Affine3d::Identity();
-	Eigen::Quaternion <double> orientation_init(Eigen::AngleAxisd(reset_pose.getYaw(), Eigen::Vector3d::UnitZ())*
+
+    Eigen::Quaternion <double> orientation_init(Eigen::AngleAxisd(reset_pose.getYaw(), Eigen::Vector3d::UnitZ())*
 									Eigen::AngleAxisd(-previous_imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
 									Eigen::AngleAxisd(-previous_imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
 	
@@ -227,8 +245,9 @@ bool Task::resetPose()
 	Eigen::Translation<double,3> translation_init(reset_pose.position.x(),
 	 											reset_pose.position.y(),
 	 											reset_pose.position.z());
-	
-    pose = translation_init * orientation_init;
+    	
+    pose = translation_init * orientation_init;    
+
 	Eigen::Quaternion<double> attitude(pose.rotation());		
 		
 	// Rigid body state output initialization
@@ -240,8 +259,6 @@ bool Task::resetPose()
 	pose_out.time = base::Time::now();
 	pose_out.position = pose.translation();
 	pose_out.orientation = attitude;
-
-    LOG_DEBUG_S << "pose_out.position: " << std::endl << pose_out.position << std::endl << "pose_out.getYaw(): " << pose_out.getYaw();
 
     pose_out.sourceFrame = _source_frame.get();
     pose_out.targetFrame = _target_frame.get();

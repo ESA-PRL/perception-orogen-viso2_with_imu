@@ -5,6 +5,7 @@
 
 #include "viso2_with_imu/TaskBase.hpp"
 #include "base-logging/Logging.hpp"
+#include <ctime>
 
 namespace viso2_with_imu {
 
@@ -17,7 +18,8 @@ namespace viso2_with_imu {
 			reset_pose;
 		Eigen::Affine3d pose; //accumulated pose
 		double gyro_offset;
-		bool pose_valid;
+		bool pose_valid, start;
+        std::clock_t begin;
 
     public:
         Task(std::string const& name = "viso2_with_imu::Task");

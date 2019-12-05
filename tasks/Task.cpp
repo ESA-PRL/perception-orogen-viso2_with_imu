@@ -20,12 +20,14 @@ Task::~Task()
 
 void Task::delta_pose_samples_inTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &delta_pose_samples_in_sample)
 {
-    throw std::runtime_error("Aggregator callback for delta_pose_samples_in not implemented");
+    delta_pose = delta_pose_samples_in_sample;
+    this->fuseVisualOdomAndIMU();
 }
 
 void Task::pose_samples_imuTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &pose_samples_imu_sample)
 {
-    throw std::runtime_error("Aggregator callback for pose_samples_imu not implemented");
+    imu_pose = pose_samples_imu_sample;
+    //this->fuseVisualOdomAndIMU();
 }
 
 /// The following lines are template definitions for the various state machine
@@ -93,110 +95,6 @@ void Task::updateHook()
 {
     TaskBase::updateHook();
 	
-    /*
-    if (start)
-    {
-        std::clock_t end = std::clock();
-        std::cout << "--------------------" << std::endl << "--------------------" << std::endl;
-        std::cout << " Viso2_with_imu task warm up time:" << static_cast<double>(end - begin) / CLOCKS_PER_SEC << std::endl;
-        std::cout << "--------------------" << std::endl << "--------------------" << std::endl;
-        start = false;
-    }
-    */
-
-    double delta_yaw, delta_pitch, delta_roll;
-
-    //std::cout << "updateHook -- delta_yaw: " << delta_yaw << "\n";
-
-    if(!pose_valid)
-    {
-		pose_valid = this->resetPose();
-        LOG_DEBUG_S << "Resetting invalid pose: " << pose_valid;
-    }
-	if(_reset_pose.connected())
-	{
-		if(_reset_pose.read(reset_pose) == RTT::NewData)
-		{
-			pose_valid = this->resetPose();
-            LOG_DEBUG_S << "Resetting pose: " << pose_valid;
-        }
-	}
-    if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
-	{
-		if(_pose_samples_imu_extra.read(imu_extra_pose) == RTT::NewData)
-        {
-            delta_yaw = imu_extra_pose.getYaw() - previous_imu_extra_pose.getYaw();
-		    previous_imu_extra_pose = imu_extra_pose;
-        }
-	}
-
-    if(_delta_pose_samples_in.read(delta_pose) == RTT::NewData && pose_valid)
-    {
-        // read IMU sensors
-		while(_pose_samples_imu.read(imu_pose) != RTT::NewData);// non blocking because IMU is fast enough
-		
-        if(!_pose_samples_imu_extra.connected())
-        {
-            delta_yaw = delta_pose.getYaw();
-        }
-		// TODO this IMU rotation must be sorted out one day
-        delta_pitch = (-imu_pose.getPitch())-(-previous_imu_pose.getPitch());
-		delta_roll = (-imu_pose.getRoll())-(-previous_imu_pose.getRoll());
-		previous_imu_pose = imu_pose;
-		//pitch = imu_pose.getPitch()-previous_imu_pose.getPitch();
-		//roll = imu_pose.getRoll()-previous_imu_pose.getRoll();
-		
-		//std::cout << "delta_roll, delta_pitch, delta_yaw: " << delta_roll << "," << delta_pitch << "," << delta_yaw << "\n";
-			
-		// from rigidbody state to eigen affine3d 	
-		// combine delta pitch roll from imu with the ones of viso2
-
-		Eigen::Quaternion <double> orientation_delta(Eigen::AngleAxisd(delta_yaw, Eigen::Vector3d::UnitZ())*
-                                        Eigen::AngleAxisd(delta_pitch, Eigen::Vector3d::UnitY()) *
-										Eigen::AngleAxisd(delta_roll, Eigen::Vector3d::UnitX()));
-										
-		
-		Eigen::Translation<double,3> translation_delta(delta_pose.position.x(),
-													delta_pose.position.y(),
-													delta_pose.position.z());
-		Eigen::Transform<double,3,Eigen::Affine> eigen_delta_pose = orientation_delta * translation_delta;		
-
-        // update pose	
-        
-        pose = pose * eigen_delta_pose;
-
-        Eigen::Quaternion<double> attitude(pose.rotation());		
-		
-        pose_out.time = delta_pose.time;
-        pose_out.position = pose.translation();
-		pose_out.orientation = attitude;
-
-        // force attitude to IMU attitude
-		Eigen::Quaternion <double> imu_orientation;
-										
-		if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
-		{
-			Eigen::Quaternion <double> tmp_orient(Eigen::AngleAxisd(imu_extra_pose.getYaw()+gyro_offset, Eigen::Vector3d::UnitZ())*
-									Eigen::AngleAxisd(-imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
-									Eigen::AngleAxisd(-imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
-			imu_orientation = tmp_orient;
-		}	
-		else
-		{
-			Eigen::Quaternion <double> tmp_orient(Eigen::AngleAxisd(pose_out.getYaw(), Eigen::Vector3d::UnitZ())*
-                                        Eigen::AngleAxisd(-imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
-										Eigen::AngleAxisd(-imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
-			imu_orientation = tmp_orient;
-		}
-		
-		Eigen::Translation<double,3> translation_total(pose.translation());
-		pose = translation_total * imu_orientation;
-
-		pose_out.sourceFrame = _source_frame.get();
-		pose_out.targetFrame = _target_frame.get();
-	
-        _pose_samples_out.write(pose_out);
-	}
 
 }
 void Task::errorHook()
@@ -273,4 +171,98 @@ bool Task::resetPose()
 
 	_pose_samples_out.write(pose_out);
 	return true;
+}
+
+void Task::fuseVisualOdomAndIMU() 
+{
+    double delta_yaw, delta_pitch, delta_roll;
+
+    //std::cout << "updateHook -- delta_yaw: " << delta_yaw << "\n";
+
+    if(!pose_valid)
+    {
+		pose_valid = this->resetPose();
+        LOG_DEBUG_S << "Resetting invalid pose: " << pose_valid;
+    }
+	if(_reset_pose.connected())
+	{
+		if(_reset_pose.read(reset_pose) == RTT::NewData)
+		{
+			pose_valid = this->resetPose();
+            LOG_DEBUG_S << "Resetting pose: " << pose_valid;
+        }
+	}
+    if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
+	{
+		if(_pose_samples_imu_extra.read(imu_extra_pose) == RTT::NewData)
+        {
+            delta_yaw = imu_extra_pose.getYaw() - previous_imu_extra_pose.getYaw();
+		    previous_imu_extra_pose = imu_extra_pose;
+        }
+	}
+
+    if(pose_valid)
+    {
+        if(!_pose_samples_imu_extra.connected())
+        {
+            delta_yaw = delta_pose.getYaw();
+        }
+		// TODO this IMU rotation must be sorted out one day
+        delta_pitch = (-imu_pose.getPitch())-(-previous_imu_pose.getPitch());
+		delta_roll = (-imu_pose.getRoll())-(-previous_imu_pose.getRoll());
+		previous_imu_pose = imu_pose;
+		//pitch = imu_pose.getPitch()-previous_imu_pose.getPitch();
+		//roll = imu_pose.getRoll()-previous_imu_pose.getRoll();
+		
+		//std::cout << "delta_roll, delta_pitch, delta_yaw: " << delta_roll << "," << delta_pitch << "," << delta_yaw << "\n";
+			
+		// from rigidbody state to eigen affine3d 	
+		// combine delta pitch roll from imu with the ones of viso2
+
+		Eigen::Quaternion <double> orientation_delta(Eigen::AngleAxisd(delta_yaw, Eigen::Vector3d::UnitZ())*
+                                        Eigen::AngleAxisd(delta_pitch, Eigen::Vector3d::UnitY()) *
+										Eigen::AngleAxisd(delta_roll, Eigen::Vector3d::UnitX()));
+										
+		
+		Eigen::Translation<double,3> translation_delta(delta_pose.position.x(),
+													delta_pose.position.y(),
+													delta_pose.position.z());
+		Eigen::Transform<double,3,Eigen::Affine> eigen_delta_pose = orientation_delta * translation_delta;		
+
+        // update pose	
+        
+        pose = pose * eigen_delta_pose;
+
+        Eigen::Quaternion<double> attitude(pose.rotation());		
+		
+        pose_out.time = delta_pose.time;
+        pose_out.position = pose.translation();
+		pose_out.orientation = attitude;
+
+        // force attitude to IMU attitude
+		Eigen::Quaternion <double> imu_orientation;
+										
+		if(_pose_samples_imu_extra.connected()) // read second imu specifically for yaw
+		{
+			Eigen::Quaternion <double> tmp_orient(Eigen::AngleAxisd(imu_extra_pose.getYaw()+gyro_offset, Eigen::Vector3d::UnitZ())*
+									Eigen::AngleAxisd(-imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
+									Eigen::AngleAxisd(-imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
+			imu_orientation = tmp_orient;
+		}	
+		else
+		{
+			Eigen::Quaternion <double> tmp_orient(Eigen::AngleAxisd(pose_out.getYaw(), Eigen::Vector3d::UnitZ())*
+                                        Eigen::AngleAxisd(-imu_pose.getPitch(), Eigen::Vector3d::UnitY()) *
+										Eigen::AngleAxisd(-imu_pose.getRoll(), Eigen::Vector3d::UnitX()));
+			imu_orientation = tmp_orient;
+		}
+		
+		Eigen::Translation<double,3> translation_total(pose.translation());
+		pose = translation_total * imu_orientation;
+
+		pose_out.sourceFrame = _source_frame.get();
+		pose_out.targetFrame = _target_frame.get();
+	
+        _pose_samples_out.write(pose_out);
+	}
 }

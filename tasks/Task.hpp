@@ -43,8 +43,10 @@ namespace viso2_with_imu {
         void stopHook();
 
         void cleanupHook();
-        
+
         bool resetPose();
+
+        void fuseVisualOdomAndIMU();
     };
 }
 

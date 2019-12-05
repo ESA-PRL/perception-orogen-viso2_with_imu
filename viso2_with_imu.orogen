@@ -32,6 +32,19 @@ task_context "Task" do
     input_port("reset_pose", "/base/samples/RigidBodyState").
         doc "Pose is reset to X,Y,Z and yaw of this input pose. Pitch and roll are still taken from the IMU"
 
+    # Stream aligner
+    #stream_aligner do
+    #    max_latency 1.0
+    #    align_port "pose_samples_imu", 0
+    #    align_port "delta_pose_samples_in", 0
+    #end
+
+    transformer do
+        max_latency 1.0
+        align_port "pose_samples_imu", 0.5
+        align_port "delta_pose_samples_in", 0.5
+    end
+
     # OUTPUT
     output_port("pose_samples_out", "/base/samples/RigidBodyState").
         doc "Estimated pose in body frame. Tbody0_bodyk"

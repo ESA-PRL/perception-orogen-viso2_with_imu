@@ -12,5 +12,5 @@
   <depend package="drivers/orogen/transformer" />
   <depend package="perception/orogen/viso2" />
   <depend package="perception/frame_helper"/>
-
+  <depend package="drivers/orogen/aggregator" />
 </package>

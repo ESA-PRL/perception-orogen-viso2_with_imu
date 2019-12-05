@@ -18,7 +18,15 @@ Task::~Task()
 {
 }
 
+void Task::delta_pose_samples_inTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &delta_pose_samples_in_sample)
+{
+    throw std::runtime_error("Aggregator callback for delta_pose_samples_in not implemented");
+}
 
+void Task::pose_samples_imuTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &pose_samples_imu_sample)
+{
+    throw std::runtime_error("Aggregator callback for pose_samples_imu not implemented");
+}
 
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See Task.hpp for more detailed

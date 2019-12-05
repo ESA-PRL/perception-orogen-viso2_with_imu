@@ -21,6 +21,10 @@ namespace viso2_with_imu {
 		bool pose_valid, start;
         std::clock_t begin;
 
+    protected:
+        virtual void delta_pose_samples_inTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &delta_pose_samples_in_sample);
+        virtual void pose_samples_imuTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &pose_samples_imu_sample);
+
     public:
         Task(std::string const& name = "viso2_with_imu::Task");
 
